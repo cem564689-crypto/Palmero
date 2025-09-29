@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Emoji Bounce — Global Leaderboard + Bouncing Video</title>
+<title>No More Alcohol — Global Leaderboard + Bouncing Video</title>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#fff;overflow:hidden;background:#000}
   /* Arka plan resmi */
@@ -67,7 +67,7 @@
   <div class="overlay"></div>
 
   <main class="card" aria-live="polite">
-    <h1>Emoji Bounce ⏳</h1>
+    <h1>No More Alcohol ⏳</h1>
     <section class="grid" aria-label="Countdown">
       <div class="box"><div id="d" class="num">–</div><div class="lbl">Days</div></div>
       <div class="box"><div id="h" class="num">–</div><div class="lbl">Hours</div></div>
@@ -172,8 +172,7 @@ const DEVICE = (()=>{ const ua=navigator.userAgent||""; return {
   isAndroid:/Android/i.test(ua),
   isIOS:/iPhone|iPad|iPod/i.test(ua)
 };})();
-// hız normalize: Android hızlı geliyordu → %90, iOS yavaş → %110
-const deviceFactor = DEVICE.isAndroid ? 0.90 : DEVICE.isIOS ? 1.10 : 1.00;
+const deviceFactor = DEVICE.isAndroid ? 0.90 : DEVICE.isIOS ? 1.10 : 1.00; // hız normalize
 
 /* ========== Countdown ========== */
 const DEADLINE = new Date("2025-10-07T23:59:59");
@@ -243,8 +242,7 @@ function endGame(){
   els.finalScore.textContent = String(score);
   // skor kaydı + top3 (GLOBAL Firestore)
   saveScore(currentUser, score).then(({isTop3,isPB})=>{
-    renderTop3().then(()=>{ // hem modal içindeki, hem ana sayfadaki tabloyu güncelle
-      renderTop3OnMain();
+    Promise.all([renderTop3(), renderTop3OnMain()]).then(()=>{
       els.gameOver.style.display='flex'; els.gameOver.setAttribute('aria-hidden','false');
       if(isTop3 || isPB) celebrateFireworks();
     });
@@ -339,7 +337,7 @@ async function renderTop3OnMain(){
     const d=docu.data(); i++;
     html += `<tr><td>${i}</td><td>${d.name || docu.id}</td><td>${d.best||0}</td></tr>`;
   });
-  els.top3TableOnMain.innerHTML = html || '<tr><td>–</td><td>–</td><td>–</td></tr>';
+  document.querySelector('#top3 tbody').innerHTML = html || '<tr><td>–</td><td>–</td><td>–</td></tr>';
 }
 
 /* --- Fireworks --- */
@@ -405,10 +403,9 @@ function loop(){
     if(ball.y+ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x+paddle.w && ball.vy>0){
       // temel yansıma
       ball.vy = -Math.abs(ball.vy);
-      // vuruş noktasına göre açı: merkezden uzaklığa göre yatay hız değişikliği
+      // vuruş noktasına göre açı + rastgele sapma (predictable olmasın)
       const hitPos = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2); // -1..1
-      ball.vx += hitPos * 1.5; // kontrol edilebilir sapma
-      // rastgele küçük sapma (predictable olmasın)
+      ball.vx += hitPos * 1.5;
       ball.vx += (Math.random()*2 - 1) * 0.7;
 
       // hız artışı (kademeli + normalize, max 5)
