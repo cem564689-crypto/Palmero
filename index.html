@@ -3,86 +3,78 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Countdown + Video + Confetti</title>
+<title>Emoji Bounce — Global Leaderboard</title>
 <style>
-  html,body {
-    height:100%; margin:0;
-    font-family: system-ui, sans-serif;
-    color:#fff; background:#000; overflow:hidden;
-  }
-  body::before {
-    content:""; position:fixed; inset:0; z-index:0;
-    background:url("bg.jpg") center/cover no-repeat fixed;
-  }
-  body::after {
-    content:""; position:fixed; inset:0; z-index:1;
-    background:radial-gradient(ellipse at center, rgba(0,0,0,.2), rgba(0,0,0,.8));
-    pointer-events:none;
-  }
+  html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#fff;background:#000;overflow:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:0;background:url("bg.jpg") center/cover no-repeat fixed}
+  body::after{content:"";position:fixed;inset:0;z-index:1;background:radial-gradient(ellipse at center, rgba(0,0,0,.2), rgba(0,0,0,.8));pointer-events:none}
 
-  /* Video sabit, başta gizli */
-  #bgvid {
-    position:fixed; z-index:2;
-    width:60vw; max-width:800px; height:auto;
-    top:50%; left:50%; transform:translate(-50%,-50%);
-    display:none;
-  }
+  .card{position:relative;z-index:3;max-width:820px;margin:22px auto;padding:26px;background:rgba(0,0,0,.55);border-radius:18px;text-align:center}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+  .box{background:rgba(255,255,255,.10);padding:14px;border-radius:12px}
+  .num{font-size:32px;font-weight:800}.lbl{font-size:12px;opacity:.85}
 
-  .card {
-    position:relative; z-index:3;
-    max-width:600px; margin:40px auto; padding:20px;
-    background:rgba(0,0,0,.6); border-radius:16px; text-align:center;
-  }
-  .grid {
-    display:grid; grid-template-columns:repeat(4,1fr);
-    gap:10px; margin:14px 0;
-  }
-  .box {
-    background:rgba(255,255,255,.1);
-    padding:14px; border-radius:12px;
-  }
-  .num { font-size:32px; font-weight:800 }
-  .lbl { font-size:12px; opacity:.85 }
+  .controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px}
+  .btn{background:#fff;color:#111;font-weight:800;border:none;border-radius:999px;padding:10px 14px;cursor:pointer}
+  .btn:active{transform:scale(.98)}
 
-  .controls {
-    display:flex; justify-content:center; gap:10px; margin-top:12px;
-  }
-  .btn {
-    background:#fff; color:#111; font-weight:800;
-    border:none; border-radius:999px; padding:10px 14px; cursor:pointer;
-  }
-  .btn:active{transform:scale(.97)}
+  #startOverlay{position:fixed;inset:0;z-index:6;display:grid;place-items:center;background:rgba(0,0,0,.55)}
+  #startOverlay button{font-size:16px;font-weight:900;padding:14px 18px;border-radius:999px;border:none;cursor:pointer}
 
-  #startOverlay {
-    position:fixed; inset:0; z-index:6;
-    display:grid; place-items:center;
-    background:rgba(0,0,0,.55);
-  }
-  #startOverlay button {
-    font-size:16px; font-weight:900;
-    padding:14px 18px; border-radius:999px;
-    border:none; cursor:pointer;
-  }
+  .modal{position:fixed;inset:0;z-index:7;display:none;background:rgba(0,0,0,.55);align-items:center;justify-content:center}
+  .modal-card{background:rgba(0,0,0,.78);border-radius:16px;padding:22px;width:min(90vw,380px);text-align:center}
+  .actions{display:flex;gap:10px;justify-content:center;margin-top:12px}
+  .field{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  .input{padding:10px 12px;border-radius:10px;border:none;outline:none;width:60%}
+  .note{opacity:.8;font-size:12px;margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{padding:8px 10px;text-align:left} th{opacity:.8}
+  tr:nth-child(even){background:rgba(255,255,255,.05)}
 </style>
 </head>
 <body>
-  <video id="bgvid" preload="auto" muted playsinline loop>
-    <source src="video.mp4" type="video/mp4">
-  </video>
-
-  <main class="card">
-    <h1>⏳ Countdown</h1>
-    <section class="grid">
+  <main class="card" aria-live="polite">
+    <h1>Emoji Bounce ⏳</h1>
+    <section class="grid" aria-label="Countdown">
       <div class="box"><div id="d" class="num">–</div><div class="lbl">Days</div></div>
       <div class="box"><div id="h" class="num">–</div><div class="lbl">Hours</div></div>
       <div class="box"><div id="m" class="num">–</div><div class="lbl">Minutes</div></div>
       <div class="box"><div id="s" class="num">–</div><div class="lbl">Seconds</div></div>
     </section>
+
     <div class="controls">
       <button id="musicToggle" class="btn">Play Music</button>
       <button id="musicMute" class="btn">Unmute</button>
+      <button id="playBtn" class="btn">Play (ask name & save score)</button>
     </div>
+
+    <h3 style="margin:16px 0 6px">Top 3 (Global)</h3>
+    <table id="top3"><thead><tr><th>#</th><th>Name</th><th>Best</th></tr></thead><tbody></tbody></table>
   </main>
+
+  <!-- Username Modal -->
+  <div id="nameModal" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Enter a unique username</h2>
+      <div class="field">
+        <input id="nameInput" class="input" type="text" maxlength="20" placeholder="Your name">
+        <button id="nameOk" class="btn">OK</button>
+      </div>
+      <div id="nameErr" class="note" style="color:#ffabab;display:none">This name is taken. Try another.</div>
+      <div class="note">One name per person (global).</div>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameOver" class="modal" aria-hidden="true">
+    <div class="modal-card">
+      <h2>Saved!</h2>
+      <p>Your best: <span id="finalBest">0</span></p>
+      <div class="actions">
+        <button id="closeGo" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
 
   <div id="startOverlay">
     <button id="startBtn">Start (enable sound)</button>
@@ -92,57 +84,125 @@
     <source src="music.mp3" type="audio/mpeg">
   </audio>
 
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-<script>
-const els = {
-  d:document.getElementById("d"),
-  h:document.getElementById("h"),
-  m:document.getElementById("m"),
-  s:document.getElementById("s"),
-  vid:document.getElementById("bgvid"),
-  music:document.getElementById("bgmusic"),
-  musicToggle:document.getElementById("musicToggle"),
-  musicMute:document.getElementById("musicMute"),
-  startOverlay:document.getElementById("startOverlay"),
-  startBtn:document.getElementById("startBtn")
-};
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
-const DEADLINE = new Date("2025-10-07T23:59:59");
+  <!-- Firebase + App code -->
+  <script type="module">
+  /* ---- Firebase Config (BURAYI DOLDUR) ---- */
+  const firebaseConfig = {
+    apiKey: "PASTE_YOURS",
+    authDomain: "PASTE_YOURS.firebaseapp.com",
+    projectId: "PASTE_YOURS",
+    storageBucket: "PASTE_YOURS.appspot.com",
+    messagingSenderId: "PASTE_YOURS",
+    appId: "PASTE_YOURS"
+  };
+  /* ---------------------------------------- */
 
-function pad(n){return String(n).padStart(2,"0")}
-function tick(){
-  const now = new Date();
-  let diff = DEADLINE - now;
-  if(diff <= 0){
-    els.d.textContent = els.h.textContent = els.m.textContent = els.s.textContent = "00";
-    // süre dolduğunda video sabit göster
-    els.vid.style.display="block";
-    els.vid.play();
-    // konfeti patlat
-    confetti({particleCount:200,spread:70,origin:{y:0.6}});
-    clearInterval(timer);
-    return;
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, query, collection, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const $ = s => document.querySelector(s);
+  const els = {
+    d:$("#d"), h:$("#h"), m:$("#m"), s:$("#s"),
+    music:$("#bgmusic"),
+    musicToggle:$("#musicToggle"), musicMute:$("#musicMute"),
+    startOverlay:$("#startOverlay"), startBtn:$("#startBtn"),
+    playBtn:$("#playBtn"),
+    nameModal:$("#nameModal"), nameInput:$("#nameInput"), nameOk:$("#nameOk"), nameErr:$("#nameErr"),
+    gameOver:$("#gameOver"), finalBest:$("#finalBest"), closeGo:$("#closeGo"),
+    top3Body:document.querySelector("#top3 tbody")
+  };
+
+  // Countdown → süre dolunca konfeti
+  const DEADLINE = new Date("2025-10-07T23:59:59");
+  function pad(n){return String(n).padStart(2,"0")}
+  function renderCountdown(){
+    const now=new Date(); let diff=DEADLINE-now;
+    if(diff<=0){
+      els.d.textContent=els.h.textContent=els.m.textContent=els.s.textContent="00";
+      confetti({particleCount:200,spread:70,origin:{y:0.6}});
+      clearInterval(cdTimer); return;
+    }
+    const d=Math.floor(diff/86400000); diff-=d*86400000;
+    const h=Math.floor(diff/3600000); diff-=h*3600000;
+    const m=Math.floor(diff/60000); diff-=m*60000;
+    const s=Math.floor(diff/1000);
+    els.d.textContent=d; els.h.textContent=pad(h); els.m.textContent=pad(m); els.s.textContent=pad(s);
   }
-  const d = Math.floor(diff/86400000); diff-=d*86400000;
-  const h = Math.floor(diff/3600000); diff-=h*3600000;
-  const m = Math.floor(diff/60000); diff-=m*60000;
-  const s = Math.floor(diff/1000);
-  els.d.textContent=d;
-  els.h.textContent=pad(h);
-  els.m.textContent=pad(m);
-  els.s.textContent=pad(s);
-}
-tick();
-const timer=setInterval(tick,1000);
+  renderCountdown(); const cdTimer=setInterval(renderCountdown,1000);
 
-// music controls
-let playing=false;
-els.musicToggle.onclick=()=>{ if(!playing){ els.music.play(); playing=true; } else { els.music.pause(); playing=false; } };
-els.musicMute.onclick=()=>{ els.music.muted=!els.music.muted };
-els.startBtn.onclick=async()=>{
-  try{ await els.music.play(); playing=true; els.music.muted=false; }catch(e){}
-  els.startOverlay.style.display="none";
-};
-</script>
+  // Music
+  let playing=false;
+  els.musicToggle.onclick=()=>{ if(!playing){ els.music.play(); playing=true; } else { els.music.pause(); playing=false; } };
+  els.musicMute.onclick=()=>{ els.music.muted=!els.music.muted };
+  els.startBtn.onclick=async()=>{ try{await els.music.play();playing=true;els.music.muted=false;}catch(e){} els.startOverlay.style.display="none"; };
+
+  // Auth (anonymous)
+  signInAnonymously(auth).catch(console.error);
+
+  // Global Top 3
+  async function loadTop3(){
+    const q = query(collection(db,"scores"), orderBy("best","desc"), limit(3));
+    const ss = await getDocs(q);
+    let i=0, html="";
+    ss.forEach(d=>{ const data=d.data(); i++; html += `<tr><td>${i}</td><td>${data.username||"–"}</td><td>${data.best||0}</td></tr>`; });
+    if(!html) html='<tr><td>–</td><td>–</td><td>–</td></tr>';
+    els.top3Body.innerHTML=html;
+  }
+  loadTop3();
+
+  // Username modal
+  function openName(){ els.nameInput.value=""; els.nameErr.style.display="none"; els.nameModal.style.display="flex"; els.nameInput.focus(); }
+  function closeName(){ els.nameModal.style.display="none"; }
+
+  async function isNameTaken(nameLower){
+    const ss = await getDocs(collection(db,"scores"));
+    let taken=false;
+    ss.forEach(d=>{ const data=d.data(); if((data.usernameLower||"")===nameLower) taken=true; });
+    return taken;
+  }
+
+  async function saveBest(username, score){
+    const ref = doc(db,"scores", username);
+    const snap = await getDoc(ref);
+    if(!snap.exists()){
+      await setDoc(ref,{ username, usernameLower: username.toLowerCase(), best: score, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      return score;
+    }else{
+      const cur = snap.data().best || 0;
+      const best = Math.max(cur, score);
+      if(best !== cur){
+        await updateDoc(ref,{ best, username, usernameLower: username.toLowerCase(), updatedAt: serverTimestamp() });
+      }
+      return best;
+    }
+  }
+
+  els.playBtn.onclick = ()=> openName();
+
+  els.nameOk.onclick = async ()=>{
+    const name = (els.nameInput.value||"").trim();
+    if(!name){ els.nameErr.textContent="Please enter a name."; els.nameErr.style.display="block"; return; }
+    const taken = await isNameTaken(name.toLowerCase());
+    if(taken){ els.nameErr.textContent="This name is taken. Try another."; els.nameErr.style.display="block"; return; }
+    closeName();
+
+    // DEMO: rastgele skor üret
+    const score = Math.floor(Math.random()*51);
+    const best = await saveBest(name, score);
+    await loadTop3();
+
+    els.finalBest.textContent = String(best);
+    els.gameOver.style.display="flex";
+  };
+
+  els.closeGo.onclick = ()=>{ els.gameOver.style.display="none"; };
+  </script>
 </body>
 </html>
