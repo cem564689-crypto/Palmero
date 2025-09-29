@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>I Promised: No Alcohol — Countdown + Emoji Game</title>
+<title>Emoji Bounce — Global Leaderboard + Bouncing Video</title>
 <style>
   html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:#fff;overflow:hidden;background:#000}
   /* Arka plan resmi */
@@ -67,7 +67,7 @@
   <div class="overlay"></div>
 
   <main class="card" aria-live="polite">
-    <h1>I Promised: No Alcohol ⏳</h1>
+    <h1>Emoji Bounce ⏳</h1>
     <section class="grid" aria-label="Countdown">
       <div class="box"><div id="d" class="num">–</div><div class="lbl">Days</div></div>
       <div class="box"><div id="h" class="num">–</div><div class="lbl">Hours</div></div>
@@ -82,6 +82,9 @@
 
     <button id="playGameBtn" class="btn" style="margin-top:16px;display:none">Play Game</button>
     <p style="opacity:.85;margin:.4rem 0 0">Double tap/click also starts the game. Single tap = fireworks 🎆</p>
+
+    <h3 style="margin:16px 0 6px">Top 3 (Global)</h3>
+    <table id="top3"><thead><tr><th>#</th><th>Name</th><th>Best</th></tr></thead><tbody></tbody></table>
   </main>
 
   <canvas id="gameCanvas"></canvas>
@@ -95,7 +98,7 @@
         <button id="nameOk" class="btn">OK</button>
       </div>
       <div id="nameErr" class="note" style="color:#ffabab;display:none">This name is taken. Try another.</div>
-      <div class="note">Names are unique. Your best score is saved on this device.</div>
+      <div class="note">Global leaderboard. One name per person.</div>
     </div>
   </div>
 
@@ -105,11 +108,8 @@
       <h2>Game Over</h2>
       <p>Score: <span id="finalScore">0</span></p>
 
-      <h3 style="margin:.5rem 0 0">Top 3</h3>
-      <table id="top3">
-        <thead><tr><th>#</th><th>Name</th><th>Best</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <h3 style="margin:.5rem 0 0">Top 3 (Global)</h3>
+      <table id="top3GO"><thead><tr><th>#</th><th>Name</th><th>Best</th></tr></thead><tbody id="top3Body"></tbody></table>
 
       <div class="actions">
         <button id="playAgainBtn" class="btn">Play Again</button>
@@ -127,7 +127,30 @@
     <source src="music.mp3" type="audio/mpeg">
   </audio>
 
+  <!-- Firebase compat SDK'ları -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Konfeti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
 <script>
+/* ========== Firebase: senin projen ========== */
+const firebaseConfig = {
+  apiKey: "AIzaSyApHBkUOMJ1EDgudFVAE44d0vCLR0542v4",
+  authDomain: "palermo-39690.firebaseapp.com",
+  projectId: "palermo-39690",
+  storageBucket: "palermo-39690.firebasestorage.app",
+  messagingSenderId: "801382190611",
+  appId: "1:801382190611:web:9e000b5d32382a2f9e79e6",
+  measurementId: "G-CMMBQYTLC7"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+let _authed=false;
+auth.signInAnonymously().then(()=>_authed=true).catch(console.error);
+
 /* ========== Helpers & State ========== */
 function $(s){return document.querySelector(s)}
 const els = {
@@ -141,7 +164,8 @@ const els = {
   gameOver: $('#gameOver'), finalScore: $('#finalScore'),
   playAgainBtn: $('#playAgainBtn'), exitGameBtn: $('#exitGameBtn'),
   nameModal: $('#nameModal'), nameInput: $('#nameInput'), nameOk: $('#nameOk'), nameErr: $('#nameErr'),
-  top3Body: document.querySelector('#top3 tbody')
+  top3Body: document.querySelector('#top3Body'),
+  top3TableOnMain: document.querySelector('#top3 tbody')
 };
 
 const DEVICE = (()=>{ const ua=navigator.userAgent||""; return {
@@ -156,11 +180,16 @@ const DEADLINE = new Date("2025-10-07T23:59:59");
 function pad(n){return String(n).padStart(2,"0")}
 function tick(){
   const now=new Date(); let diff=Math.max(0,DEADLINE-now);
-  const d=Math.floor(diff/86400000); diff-=d*86400000;
-  const h=Math.floor(diff/3600000); diff-=h*3600000;
-  const m=Math.floor(diff/60000); diff-=m*60000;
-  const s=Math.floor(diff/1000);
-  els.d.textContent=d; els.h.textContent=pad(h); els.m.textContent=pad(m); els.s.textContent=pad(s);
+  if(diff<=0){
+    els.d.textContent=els.h.textContent=els.m.textContent=els.s.textContent="00";
+    confetti({particleCount:200,spread:70,origin:{y:0.6}});
+  }else{
+    const d=Math.floor(diff/86400000); diff-=d*86400000;
+    const h=Math.floor(diff/3600000); diff-=h*3600000;
+    const m=Math.floor(diff/60000); diff-=m*60000;
+    const s=Math.floor(diff/1000);
+    els.d.textContent=d; els.h.textContent=pad(h); els.m.textContent=pad(m); els.s.textContent=pad(s);
+  }
 }
 tick(); setInterval(tick,1000);
 
@@ -177,7 +206,7 @@ els.startBtn.onclick=async()=>{
   els.playGameBtn.style.display="inline-block";
 };
 
-/* ========== Bouncing video ========== */
+/* ========== Bouncing video (devam) ========== */
 let posX=0,posY=0,vx=2,vy=1.5;
 function moveVid(){
   const vw=els.vid.offsetWidth||200, vh=els.vid.offsetHeight||150;
@@ -201,6 +230,7 @@ const ball = { x:0, y:0, r:28, vx:3, vy:-6, mul:0.5, maxMul:5, emoji:'🤞' }; /
 const paddle = { w:140, h:16, x:0, y:0 };
 
 function resetGame(){
+  if(!currentUser){ askName(); return; }
   gameOn=true; over=false; score=0;
   ball.x=canvas.width*0.5; ball.y=canvas.height*0.35;
   ball.vx=3; ball.vy=-6; ball.mul=0.5 * deviceFactor;  // normalize
@@ -210,30 +240,35 @@ function resetGame(){
 }
 function endGame(){
   gameOn=false; over=true;
-  // skor kaydı + top3
-  const top3Changed = saveScore(currentUser, score);
   els.finalScore.textContent = String(score);
-  renderTop3();
-  els.gameOver.style.display='flex'; els.gameOver.setAttribute('aria-hidden','false');
-  if(top3Changed.isTop3 || top3Changed.isPB){ celebrateFireworks(); }
+  // skor kaydı + top3 (GLOBAL Firestore)
+  saveScore(currentUser, score).then(({isTop3,isPB})=>{
+    renderTop3().then(()=>{ // hem modal içindeki, hem ana sayfadaki tabloyu güncelle
+      renderTop3OnMain();
+      els.gameOver.style.display='flex'; els.gameOver.setAttribute('aria-hidden','false');
+      if(isTop3 || isPB) celebrateFireworks();
+    });
+  });
 }
 
-/* --- Username (unique) --- */
+/* --- Username (global unique) --- */
 function askName(){
   els.nameInput.value='';
   els.nameErr.style.display='none';
   els.nameModal.style.display='flex'; els.nameModal.setAttribute('aria-hidden','false');
-  els.nameInput.focus();
+  setTimeout(()=>els.nameInput.focus(),50);
 }
 function closeNameModal(){
   els.nameModal.style.display='none'; els.nameModal.setAttribute('aria-hidden','true');
 }
-els.nameOk.onclick=()=>{
+els.nameOk.onclick=async()=>{
   const name = (els.nameInput.value||'').trim();
   if(!name){ els.nameErr.textContent='Please enter a name.'; els.nameErr.style.display='block'; return; }
-  if(!isNameAvailable(name)){ els.nameErr.textContent='This name is taken. Try another.'; els.nameErr.style.display='block'; return; }
+  if(!_authed){ els.nameErr.textContent='Connecting...'; els.nameErr.style.display='block'; return; }
+  const ok = await isNameAvailable(name);
+  if(!ok){ els.nameErr.textContent='This name is taken. Try another.'; els.nameErr.style.display='block'; return; }
+  await registerName(name);
   currentUser = name;
-  registerName(name);
   closeNameModal();
   resetGame();
 };
@@ -241,36 +276,70 @@ els.playGameBtn.onclick=()=>{ if(!currentUser){ askName(); } else { resetGame();
 document.addEventListener('dblclick',()=>{ if(!currentUser){ askName(); } else { resetGame(); } });
 let lastTap=0; document.addEventListener('touchend',()=>{ const now=Date.now(); if(now-lastTap<350){ if(!currentUser){ askName(); } else { resetGame(); } } lastTap=now; });
 
-/* --- Storage & Leaderboard --- */
-const LS_KEY='emojiGameScoreboard_v1';
-function getBoard(){
-  const raw=localStorage.getItem(LS_KEY);
-  if(!raw) return { players:{}, order:[] }; // order = kayıt sırası
-  try{ return JSON.parse(raw); }catch(e){ return { players:{}, order:[] }; }
+/* --- Firestore GLOBAL: usernames + scores --- */
+// İSİM benzersiz mi?
+async function isNameAvailable(name){
+  const id = name.toLowerCase();
+  const ref = db.collection('users').doc(id);
+  const snap = await ref.get();
+  return !snap.exists;
 }
-function setBoard(b){ localStorage.setItem(LS_KEY, JSON.stringify(b)); }
-function isNameAvailable(name){
-  const b=getBoard();
-  return !(name in b.players);
+// İsim kaydı
+async function registerName(name){
+  const id = name.toLowerCase();
+  const ref = db.collection('users').doc(id);
+  await ref.set({
+    name, best: 0,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: false });
 }
-function registerName(name){
-  const b=getBoard();
-  if(!(name in b.players)){ b.players[name]=0; b.order.push(name); setBoard(b); }
-}
-function saveScore(name, sc){
-  const b=getBoard();
+// Skoru kaydet (best)
+async function saveScore(name, sc){
+  const id = (name||'').toLowerCase();
+  if(!id) return { isPB:false, isTop3:false };
+  const ref = db.collection('users').doc(id);
+  const snap = await ref.get();
   let isPB=false;
-  if(!(name in b.players)){ b.players[name]=0; b.order.push(name); }
-  if(sc > (b.players[name]||0)){ b.players[name]=sc; isPB=true; }
-  setBoard(b);
-  const topNames = Object.keys(b.players).sort((a,bn)=> b.players[bn]-b.players[a]).slice(0,3);
-  const isTop3 = topNames.includes(name);
+  if(!snap.exists){
+    await ref.set({
+      name, best: sc,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    isPB=true;
+  }else{
+    const cur = snap.data().best || 0;
+    if(sc > cur){
+      await ref.update({ best: sc, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      isPB=true;
+    }
+  }
+  // isTop3?
+  const top = await db.collection('users').orderBy('best','desc').limit(3).get();
+  const names = top.docs.map(d=> (d.data().name || d.id).toLowerCase());
+  const isTop3 = names.includes(id);
   return { isPB, isTop3 };
 }
-function renderTop3(){
-  const b=getBoard();
-  const rows = Object.entries(b.players).sort((a,bn)=> bn[1]-a[1]).slice(0,3);
-  els.top3Body.innerHTML = rows.map((row,i)=>`<tr><td>${i+1}</td><td>${row[0]}</td><td>${row[1]}</td></tr>`).join('') || '<tr><td>–</td><td>–</td><td>–</td></tr>';
+// Top3 doldur (modal)
+async function renderTop3(){
+  const qs = await db.collection('users').orderBy('best','desc').limit(3).get();
+  let i=0, html="";
+  qs.forEach(docu=>{
+    const d=docu.data(); i++;
+    html += `<tr><td>${i}</td><td>${d.name || docu.id}</td><td>${d.best||0}</td></tr>`;
+  });
+  els.top3Body.innerHTML = html || '<tr><td>–</td><td>–</td><td>–</td></tr>';
+}
+// Top3 doldur (ana sayfa)
+async function renderTop3OnMain(){
+  const qs = await db.collection('users').orderBy('best','desc').limit(3).get();
+  let i=0, html="";
+  qs.forEach(docu=>{
+    const d=docu.data(); i++;
+    html += `<tr><td>${i}</td><td>${d.name || docu.id}</td><td>${d.best||0}</td></tr>`;
+  });
+  els.top3TableOnMain.innerHTML = html || '<tr><td>–</td><td>–</td><td>–</td></tr>';
 }
 
 /* --- Fireworks --- */
@@ -282,7 +351,6 @@ function spawnFirework(x,y,count=35){
   }
 }
 function celebrateFireworks(){
-  // ekranın farklı yerlerinde 3 büyük patlama
   for(let i=0;i<3;i++){
     const x = Math.random()*canvas.width;
     const y = Math.random()*canvas.height*0.6;
@@ -343,7 +411,7 @@ function loop(){
       // rastgele küçük sapma (predictable olmasın)
       ball.vx += (Math.random()*2 - 1) * 0.7;
 
-      // hız artışı (kademeli + normalize)
+      // hız artışı (kademeli + normalize, max 5)
       ball.mul = Math.min(ball.maxMul, ball.mul + 0.10 * deviceFactor);
 
       score++;
@@ -379,8 +447,8 @@ function exitGame(){
 els.exitGameBtn.onclick=()=> exitGame();
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ exitGame(); } });
 
-/* --- Init Top3 on load --- */
-renderTop3();
+/* --- Load Top3 on load (main table) --- */
+renderTop3OnMain();
 </script>
 </body>
 </html>
